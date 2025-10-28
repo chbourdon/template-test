@@ -3,16 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Template</title>
+    <title>Interactive Menu System</title>
     <link rel="icon" type="img/png" href="https://www.google.com/s2/favicons?domain=with.so">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-    
+    <!-- PDF.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
-        
+    <!-- Mode Selector -->
+    <div class="mode-selector">
+        <button id="chef-mode-btn" class="mode-btn active">Chef Mode</button>
+        <button id="guest-mode-btn" class="mode-btn">Guest Mode</button>
+    </div>
 
-    
+    <!-- Chef Interface -->
+    <div id="chef-interface" class="interface active">
+        <div class="container">
+            <h1><i class="fas fa-utensils"></i> Chef Menu Creator</h1>
+
+            <!-- Step 1: PDF Upload -->
+            <div class="section" id="upload-section">
+                <h2>Step 1: Upload Menu PDF</h2>
+                <div class="upload-area">
+                    <input type="file" id="pdf-upload" accept=".pdf" />
+                    <label for="pdf-upload" class="upload-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Click to upload PDF or drag and drop</span>
+                    </label>
+                </div>
+                <div id="pdf-preview"></div>
+            </div>
+
+            <!-- Step 2: Configure Menu Sections -->
+            <div class="section" id="config-section" style="display: none;">
+                <h2>Step 2: Configure Menu Sections</h2>
+                <p class="info">Define sections and set how many items customers can select from each.</p>
+
+                <div id="sections-container"></div>
+
+                <button id="add-section-btn" class="btn btn-secondary">
+                    <i class="fas fa-plus"></i> Add Section
+                </button>
+
+                <div class="actions">
+                    <button id="save-menu-btn" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Menu
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guest Interface -->
+    <div id="guest-interface" class="interface">
+        <div class="container">
+            <h1><i class="fas fa-concierge-bell"></i> Interactive Menu</h1>
+
+            <div id="menu-selector" class="section">
+                <h2>Select a Menu</h2>
+                <select id="menu-list" class="input">
+                    <option value="">-- Choose a menu --</option>
+                </select>
+            </div>
+
+            <div id="menu-display" style="display: none;">
+                <div id="menu-sections"></div>
+
+                <!-- Dietary Preferences & Allergens -->
+                <div class="section dietary-section">
+                    <h2>Dietary Preferences & Allergens</h2>
+
+                    <div class="form-group">
+                        <label>Dietary Preferences:</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="vegetarian" value="vegetarian">
+                                <span>Vegetarian</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="vegan" value="vegan">
+                                <span>Vegan</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="pescatarian" value="pescatarian">
+                                <span>Pescatarian</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="gluten-free" value="gluten-free">
+                                <span>Gluten-Free</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="allergens">Food Allergens:</label>
+                        <textarea id="allergens" class="textarea"
+                                  placeholder="Please list any food allergens (e.g., nuts, shellfish, dairy, eggs, soy)"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="additional-notes">Additional Notes:</label>
+                        <textarea id="additional-notes" class="textarea"
+                                  placeholder="Any other dietary restrictions or preferences"></textarea>
+                    </div>
+                </div>
+
+                <!-- Order Summary -->
+                <div class="section order-summary">
+                    <h2>Your Order Summary</h2>
+                    <div id="order-summary-content">
+                        <p class="empty-state">Make your selections to see your order summary</p>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button id="submit-order-btn" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Submit Order
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Script -->
     <script src="script.js"></script>
 </body>
