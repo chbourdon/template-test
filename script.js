@@ -76,24 +76,215 @@ function switchMode(mode) {
 
 // ==================== CHEF INTERFACE ====================
 
+function parseMenuFromText(lines) {
+    const sections = [];
+
+    // Common menu section keywords
+    const sectionKeywords = [
+        'appetizer', 'starter', 'beginning', 'small plate', 'antipasti',
+        'salad', 'soup', 'entree', 'entrée', 'main', 'course', 'pasta',
+        'seafood', 'meat', 'poultry', 'beef', 'chicken', 'fish',
+        'vegetarian', 'vegan', 'side', 'dessert', 'sweet', 'drink',
+        'beverage', 'cocktail', 'wine', 'beer', 'breakfast', 'lunch', 'dinner',
+        'brunch', 'pizza', 'sandwich', 'burger', 'taco', 'sushi', 'roll'
+    ];
+
+    let currentSection = null;
+    let potentialItems = [];
+
+    // Filter out very short lines and common non-menu text
+    const filteredLines = lines.filter(line => {
+        const lower = line.toLowerCase();
+        if (line.length < 2) return false;
+        if (/^page \d+/i.test(line)) return false;
+        if (/^(menu|www\.|http)/i.test(line)) return false;
+        return true;
+    });
+
+    for (let i = 0; i < filteredLines.length; i++) {
+        const line = filteredLines[i].trim();
+        if (!line) continue;
+
+        const nextLine = i < filteredLines.length - 1 ? filteredLines[i + 1].trim() : '';
+
+        // Check if this line is likely a section header
+        const isSectionHeader = isSectionHeaderLine(line, nextLine, sectionKeywords);
+
+        if (isSectionHeader) {
+            // Save previous section if it exists
+            if (currentSection && potentialItems.length > 0) {
+                currentSection.items = cleanMenuItems(potentialItems);
+                if (currentSection.items.length > 0) {
+                    sections.push(currentSection);
+                }
+            }
+
+            // Start new section
+            currentSection = {
+                id: Date.now() + Math.random(),
+                name: cleanSectionName(line),
+                maxSelections: 1,
+                items: []
+            };
+            potentialItems = [];
+        } else if (currentSection) {
+            // This might be a menu item
+            const item = extractMenuItem(line);
+            if (item && item.length > 0) {
+                potentialItems.push(item);
+            }
+        }
+    }
+
+    // Save the last section
+    if (currentSection && potentialItems.length > 0) {
+        currentSection.items = cleanMenuItems(potentialItems);
+        if (currentSection.items.length > 0) {
+            sections.push(currentSection);
+        }
+    }
+
+    // Set reasonable max selections based on section size
+    sections.forEach(section => {
+        if (section.items.length <= 3) {
+            section.maxSelections = 1;
+        } else if (section.items.length <= 6) {
+            section.maxSelections = 2;
+        } else {
+            section.maxSelections = 3;
+        }
+    });
+
+    console.log('Parsed sections:', sections);
+    return sections;
+}
+
+function isSectionHeaderLine(line, nextLine, sectionKeywords) {
+    // Section headers are typically:
+    // 1. Short (less than 50 characters)
+    // 2. All caps or title case
+    // 3. Contain menu section keywords
+    // 4. Don't contain prices
+    // 5. Not followed by a description or price on the same line
+
+    if (line.length > 50) return false;
+
+    const lower = line.toLowerCase();
+
+    // Check if it contains section keywords
+    const hasKeyword = sectionKeywords.some(keyword => lower.includes(keyword));
+
+    // Check if all caps or mostly caps
+    const capsRatio = (line.match(/[A-Z]/g) || []).length / line.replace(/[^a-zA-Z]/g, '').length;
+    const isAllCaps = capsRatio > 0.7;
+
+    // Check if it's title case (first letter of each word capitalized)
+    const words = line.split(/\s+/);
+    const isTitleCase = words.length > 0 && words.every(word =>
+        word.length === 0 || /^[A-Z]/.test(word) || /^[^a-zA-Z]/.test(word)
+    );
+
+    // Shouldn't contain a price symbol prominently
+    const hasPrice = /\$\d+|\d+\.\d{2}/.test(line);
+
+    // Check if next line looks like an item (has price or description)
+    const nextLooksLikeItem = nextLine && (/\$\d+/.test(nextLine) || nextLine.length > 50);
+
+    return (hasKeyword || isAllCaps || isTitleCase) && !hasPrice;
+}
+
+function cleanSectionName(line) {
+    // Remove extra characters and clean up the section name
+    return line
+        .replace(/[_\-=]{3,}/g, '') // Remove separator lines
+        .replace(/^\W+|\W+$/g, '')   // Remove leading/trailing non-word chars
+        .trim();
+}
+
+function extractMenuItem(line) {
+    // Extract the menu item name (remove prices and excessive descriptions)
+
+    // Remove price patterns
+    let item = line.replace(/\$\s*\d+(\.\d{2})?/g, '');
+    item = item.replace(/\d+\.\d{2}\s*$/g, '');
+    item = item.replace(/\.\s*\.\s*\./g, ''); // Remove dot leaders
+
+    // If the line is very long, it might be a description - try to get just the item name
+    if (item.length > 80) {
+        // Take first sentence or first part before a dash/comma
+        const parts = item.split(/[.—–\-]{2,}|,/);
+        item = parts[0].trim();
+    }
+
+    // Remove common prefixes
+    item = item.replace(/^[-•*]\s*/, '');
+
+    // Remove excessive whitespace
+    item = item.replace(/\s+/g, ' ').trim();
+
+    return item;
+}
+
+function cleanMenuItems(items) {
+    // Filter and clean menu items
+    return items
+        .filter(item => {
+            if (!item || item.length < 3) return false;
+            // Filter out lines that look like section headers or descriptions
+            if (item.length < 10 && /^[A-Z\s]+$/.test(item)) return false;
+            // Filter out obviously wrong items
+            if (/^(the|a|an|and|or|with)\s/i.test(item)) return false;
+            return true;
+        })
+        .map(item => item.substring(0, 100)) // Limit length
+        .slice(0, 20); // Limit to max 20 items per section
+}
+
 async function handlePDFUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const preview = document.getElementById('pdf-preview');
-    preview.innerHTML = '<p>Loading PDF...</p>';
+    preview.innerHTML = '<p>Loading and analyzing PDF...</p>';
 
     try {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
 
-        // Extract text from all pages
+        // Extract text from all pages with better formatting
         let fullText = '';
+        let textLines = [];
+
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
-            const pageText = textContent.items.map(item => item.str).join(' ');
-            fullText += pageText + '\n';
+
+            // Group text items by vertical position to maintain line structure
+            const lines = [];
+            let currentY = null;
+            let currentLine = [];
+
+            textContent.items.forEach(item => {
+                const y = Math.round(item.transform[5]);
+
+                if (currentY === null || Math.abs(y - currentY) < 5) {
+                    currentLine.push(item.str);
+                    currentY = y;
+                } else {
+                    if (currentLine.length > 0) {
+                        lines.push(currentLine.join(' ').trim());
+                    }
+                    currentLine = [item.str];
+                    currentY = y;
+                }
+            });
+
+            if (currentLine.length > 0) {
+                lines.push(currentLine.join(' ').trim());
+            }
+
+            textLines = textLines.concat(lines);
+            fullText += lines.join('\n') + '\n';
         }
 
         currentMenu.pdfText = fullText;
@@ -114,6 +305,10 @@ async function handlePDFUpload(event) {
         preview.innerHTML = '<h3>PDF Preview (First Page)</h3>';
         preview.appendChild(canvas);
 
+        const analysisDiv = document.createElement('div');
+        analysisDiv.innerHTML = '<p style="margin-top: 15px; color: #27ae60; font-weight: 600;"><i class="fas fa-check-circle"></i> PDF analyzed successfully! Auto-detected menu structure below.</p>';
+        preview.appendChild(analysisDiv);
+
         // Show configuration section
         document.getElementById('config-section').style.display = 'block';
 
@@ -121,9 +316,15 @@ async function handlePDFUpload(event) {
         const menuName = file.name.replace('.pdf', '');
         currentMenu.name = menuName;
 
-        // Initialize with one empty section
-        currentMenu.sections = [];
-        addSection();
+        // Parse the PDF text to extract menu structure
+        currentMenu.sections = parseMenuFromText(textLines);
+
+        if (currentMenu.sections.length === 0) {
+            // If parsing failed, add one empty section for manual entry
+            addSection();
+        } else {
+            renderSections();
+        }
 
     } catch (error) {
         console.error('Error processing PDF:', error);
